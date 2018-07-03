@@ -10,8 +10,16 @@ import UIKit
 
 class ViewController: UIViewController {
 
+    let realNet = RealNetConnection.instance
+    
     override func viewDidLoad() {
         super.viewDidLoad()
+        realNet.start { (status) in
+            print("🌹 \(status) 🌹")
+        }
+        
+        realNet.oneMonitoring()
+        
         // Do any additional setup after loading the view, typically from a nib.
     }
 
@@ -20,6 +28,9 @@ class ViewController: UIViewController {
         // Dispose of any resources that can be recreated.
     }
 
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        
+    }
 
 }
 
