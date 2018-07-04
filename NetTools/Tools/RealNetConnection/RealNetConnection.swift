@@ -22,7 +22,7 @@ extension LocationConnectStatus {
 
 class RealNetConnection {
     
-    typealias realNetCallback = ((LocationConnectStatus) -> ())
+    typealias realNetCallback = (((org: LocationConnectStatus, ping: LocationConnectStatus?)) -> ())
     struct Defaults {
         static let aci: Double = 2.0
         static let timeout: TimeInterval = 2.0
@@ -76,11 +76,11 @@ class RealNetConnection {
                               CTRadioAccessTechnologyeHRPD]
     private static let _4gStrings = [CTRadioAccessTechnologyLTE]
     
-    private(set) var reachalityStatus: LocationConnectStatus = .unReachable
-    
     static let instance = RealNetConnection()
     
     private var notificationComplete: realNetCallback?
+    
+    private var previousStatus: LocationConnectStatus = .unReachable
     
     private init() {
         pingHost = Defaults.pingHost
@@ -106,10 +106,9 @@ class RealNetConnection {
     
     func start(_ compelete: realNetCallback? = nil) {
         if isNotifying {
-            return
+            stop()
         }
         isNotifying = true
-        reachalityStatus = .unReachable
         engine.receiveInput(input: [InfoKeys.eventKey : RREvent.load.rawValue])
         LocalConnection.start()
         NotificationCenter.default.addObserver(self, selector: #selector(handleLocalConnection(_:)), name: .localConnectChange, object: nil)
@@ -125,69 +124,76 @@ class RealNetConnection {
         isNotifying = false
     }
     
-    func oneMonitoring(_ compelete: realNetCallback? = nil) {
+    func onePing(_ compelete: realNetCallback? = nil) {
+        let status = currentReachabilityStatus()
         notificationComplete = compelete ?? notificationComplete
-        reachbility()
+        reachbility(status)
     }
     
-    private func reachbility() {
-        let status = LocationConnectStatus.current
+    private func reachbility(_ status: LocationConnectStatus) {
         if status == .unReachable || isVPNOn() {
-            notificationComplete?(status)
+            handleBlock(status, nil)
             return
         }
         ping(status: status)
+    }
+    
+    private func handleBlock(_ org: LocationConnectStatus, _ ping: LocationConnectStatus?) {
+        if org != previousStatus {
+            notificationComplete?((org: org, ping: ping))
+            previousStatus = org
+        }
     }
     
     
     private func isVPNOn() -> Bool {
       guard
         let dic = CFBridgingRetain(CFNetworkCopySystemProxySettings()?.takeUnretainedValue())
-        else { fatalError(RealNetError.nilSystemProxySettings.localizedDescription) }
+        else { return false }
       guard
         let scoped = dic["__SCOPED__"] as? [String : Any]
-        else { fatalError(RealNetError.nilScoped.localizedDescription) }
+        else { return false }
       guard
         let en0 = scoped["en0"] as? [String : Any]
-        else { fatalError(RealNetError.nilEn0.localizedDescription) }
+        else { return false }
         let str = en0.reduce("") { (result, dic) -> String in
             return result + "," + dic.key
         }
         let isVPN = (str.range(of: "tap") != nil)  || (str.range(of: "tun") != nil) || (str.range(of: "ipsec") != nil) || (str.range(of: "ppp") != nil)
         if self.isVPN != isVPN {
             self.isVPN = isVPN
-            Notification.postNotification(name: .VPNStatusChange)
         }
         return false
     }
     
     @objc private func appBecomeActive() {
+        let status = currentReachabilityStatus()
         if isNotifying {
-            reachbility()
+            reachbility(status)
         }
     }
     
     private func autoCheck() {
+        let status = currentReachabilityStatus()
         if !isNotifying {
             return
         }
         DispatchQueue.doAfter(autoCheckInterval) { [unowned self] in
-            self.reachbility()
+            self.reachbility(status)
             self.autoCheck()
         }
     }
     
     @objc private func handleLocalConnection(_ noti: Notification) {
         let lcStatus = LocationConnectStatus.current
-        let status = currentReachabilityStatus()
         let input = [InfoKeys.eventKey : RREvent.localConnect.rawValue, InfoKeys.eventParam : lcStatus.rawValue]
         let rtn = engine.receiveInput(input: input)
+        let status = currentReachabilityStatus()
         if rtn {
             if engine.currentStateIsAvailable() {
-                reachalityStatus = status
-                notificationComplete?(status)
-                if noti.name == .localConnectChange {
-                    Notification.postNotification(name: .realNetChange)
+                self.handleBlock(status, nil)
+                if lcStatus != .unReachable {
+                    reachbility(status)
                 }
             }
         }
@@ -210,22 +216,22 @@ class RealNetConnection {
     }
     
     private func ping(status: LocationConnectStatus, isFirst: Bool = true) {
+        let org = status
         pingHelper.ping { [unowned self] (isSuccess)  in
             if isSuccess {
                 let input = [InfoKeys.eventKey : RREvent.ping.rawValue, InfoKeys.eventParam : 1]
                 let rtn = self.engine.receiveInput(input: input)
                 if rtn {
                     if self.engine.currentStateIsAvailable() {
-                        self.reachalityStatus = status
-                        Notification.postNotification(name: .realNetChange)
+                        self.handleBlock(org, status)
+                        return
                     }
                 }
-                self.notificationComplete?(status)
             }
             else {
                 if !self.isVPNOn() && isFirst {
                     DispatchQueue.doAfter(1.0, doSome: {
-                        self.ping(status: status, isFirst: false)
+                        self.ping(status: org, isFirst: false)
                     })
                 }
             }

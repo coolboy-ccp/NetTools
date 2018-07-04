@@ -15,10 +15,11 @@ class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         realNet.start { (status) in
-            print("🌹 \(status) 🌹")
+        
+            print("🌹 \(status.0) 🌹")
         }
         
-        realNet.oneMonitoring()
+       // realNet.oneMonitoring()
         
         // Do any additional setup after loading the view, typically from a nib.
     }
@@ -29,7 +30,6 @@ class ViewController: UIViewController {
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        
     }
 
 }

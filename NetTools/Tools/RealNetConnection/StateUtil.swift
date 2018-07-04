@@ -27,8 +27,6 @@ extension Notification {
 extension Notification.Name {
     static let localConnectChange = Notification.Name("localConnectChangeNotification")
     static let localConnectInitialize = Notification.Name("localConnectInitializeNotification")
-    static let realNetChange = Notification.Name("realNetChangeNotification")
-    static let VPNStatusChange = Notification.Name("vpnstatusChangeNotification")
 }
 
 struct InfoKeys: Hashable {

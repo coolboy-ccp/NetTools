@@ -15,9 +15,6 @@ enum RealNetError: Error {
     case errorEvent
     case errorConnectState
     case invalidHostName
-    case nilSystemProxySettings
-    case nilScoped
-    case nilEn0
 }
 
 extension RealNetError {
@@ -34,12 +31,6 @@ extension RealNetError {
             return RealNetError.baseDescription + "use an error contection state"
         case .invalidHostName:
             return RealNetError.baseDescription + "use an invalid hostName"
-        case .nilSystemProxySettings:
-            return RealNetError.baseDescription + "not found CFNetworkCopySystemProxySettings"
-        case .nilScoped:
-            return RealNetError.baseDescription + "not found scoped in CFNetworkCopySystemProxySettings"
-        case .nilEn0:
-            return RealNetError.baseDescription + "not found en0 in scoped"
         default:
             return RealNetError.baseDescription + "found unknown error"
         }
